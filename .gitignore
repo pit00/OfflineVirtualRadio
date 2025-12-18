@@ -1,0 +1,6 @@
+.vscode/
+scraps/
+Radios/*.*
+python*/
+CurrentStation.inc
+stations.json
