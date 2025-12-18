@@ -1,6 +1,8 @@
 .vscode/
 scraps/
-Radios/*.*
+Radios/*.mp3
+Radios/*.cue
+Radios/*.png
 python*/
 CurrentStation.inc
 stations.json
