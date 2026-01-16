@@ -133,26 +133,50 @@ def day_start():
     return datetime.datetime(now.year, now.month, now.day).timestamp()
 
 DAY_START = day_start()
+SEEK_OFFSET_MS = 0
+
+# def live_offset(station):
+#     length = STATIONS[station]["length"]
+#     seed = STATIONS[station]["seed"]
+#     t = (time.time() - DAY_START + seed) % length
+#     return int(t * 1000), length * 1000
 
 def live_offset(station):
     length = STATIONS[station]["length"]
     seed = STATIONS[station]["seed"]
     t = (time.time() - DAY_START + seed) % length
-    return int(t * 1000), length * 1000
+    t = (t * 1000 + SEEK_OFFSET_MS) % (length * 1000)
+    return int(t), length * 1000
 
 # =========================
 # UI STATE EXPORT
 # =========================
 
+# def write_ui_state():
+#     offset_ms, _ = live_offset(CURRENT_STATION)
+
+#     with open(STATE_FILE, "w", encoding="utf-8") as f:
+#         f.write(
+#             "[Variables]\n"
+#             f"CurrentStation={CURRENT_STATION}\n"
+#             f"StationArt=Radios/{CURRENT_STATION}.png\n"
+#             f"Song={current_track(CURRENT_STATION, offset_ms // 1000)}\n"
+#             f"Paused={int(PAUSED)}\n"
+#         )
+
 def write_ui_state():
-    offset_ms, _ = live_offset(CURRENT_STATION)
+    if PAUSED:
+        song = ""
+    else:
+        offset_ms, _ = live_offset(CURRENT_STATION)
+        song = current_track(CURRENT_STATION, offset_ms // 1000)
 
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         f.write(
             "[Variables]\n"
             f"CurrentStation={CURRENT_STATION}\n"
             f"StationArt=Radios/{CURRENT_STATION}.png\n"
-            f"Song={current_track(CURRENT_STATION, offset_ms // 1000)}\n"
+            f"Song={song}\n"
             f"Paused={int(PAUSED)}\n"
         )
 
@@ -218,6 +242,31 @@ def prev_station():
     new = STATION_ORDER[(idx - 1) % len(STATION_ORDER)]
     play_station(new)
 
+def shuffle_station():
+    STATIONS[CURRENT_STATION]["seed"] = random.randint(10000, 99999)
+    write_ui_state()
+
+    if not PAUSED:
+        stop_playback()
+        start_playback()
+
+def toggle_play():
+    if PAUSED:
+        resume_radio()
+    else:
+        pause_radio()
+
+# SEEK_STEP = 15000  # 15 seconds in ms
+
+def seek_relative(delta_ms):
+    global SEEK_OFFSET_MS
+    SEEK_OFFSET_MS += delta_ms
+    write_ui_state()
+
+    if not PAUSED:
+        stop_playback()
+        start_playback()
+
 # =========================
 # LOOP GUARD
 # =========================
@@ -231,7 +280,61 @@ def loop_guard():
             if pos >= max_len - 1500:
                 start_playback()
 
+def ui_song_updater():
+    last_station = None
+    last_song = None
+
+    while True:
+        time.sleep(1)
+
+        if PAUSED:
+            if last_song != "":
+                last_song = ""
+                write_ui_state()
+            continue
+
+        offset_ms, _ = live_offset(CURRENT_STATION)
+        song = current_track(CURRENT_STATION, offset_ms // 1000)
+
+        if song != last_song or CURRENT_STATION != last_station:
+            last_song = song
+            last_station = CURRENT_STATION
+            write_ui_state()
+
+# def current_track_index(station, offset_sec):
+#     tracks = CUE_DATA.get(station, [])
+#     idx = 0
+#     for i, t in enumerate(tracks):
+#         if offset_sec >= t["time"]:
+#             idx = i
+#         else:
+#             break
+#     return idx
+
+# def track_watcher():
+#     last_index = -1
+#     last_station = None
+#     last_paused = None
+
+#     while True:
+#         time.sleep(0.5)
+
+#         offset_ms, _ = live_offset(CURRENT_STATION)
+#         idx = current_track_index(CURRENT_STATION, offset_ms // 1000)
+
+#         if (
+#             idx != last_index
+#             or CURRENT_STATION != last_station
+#             or PAUSED != last_paused
+#         ):
+#             last_index = idx
+#             last_station = CURRENT_STATION
+#             last_paused = PAUSED
+#             write_ui_state()
+
 threading.Thread(target=loop_guard, daemon=True).start()
+threading.Thread(target=ui_song_updater, daemon=True).start()
+# threading.Thread(target=track_watcher, daemon=True).start()
 
 # =========================
 # SOCKET SERVER
@@ -263,6 +366,18 @@ while True:
 
     elif cmd == "PLAY":
         resume_radio()
+
+    elif cmd == "TOGGLE":
+        toggle_play()
+
+    elif cmd == "SHUFFLE":
+        shuffle_station()
+
+    elif cmd == "SEEKUP":
+        seek_relative(+15000)
+
+    elif cmd == "SEEKDOWN":
+        seek_relative(-15000)
 
     elif cmd == "RESTART":
         stop_playback()

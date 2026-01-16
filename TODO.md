@@ -7,6 +7,8 @@
 - [X] restart process
 - [X] show track
 - [X] better length/seed managment
+- [X] stations meta-shuffle
+- [X] stations global-seek
 - [ ] radios sfx
 - [ ] dot matrix
 - [ ] visualizer
