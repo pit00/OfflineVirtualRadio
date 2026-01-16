@@ -9,10 +9,10 @@
 - [X] better length/seed managment
 - [X] stations meta-shuffle
 - [X] stations global-seek
+- [X] update tracklist "constantly"
 - [ ] radios sfx
 - [ ] dot matrix
 - [ ] visualizer
-- [ ] update tracklist startup
-- [ ] update tracklist "constantly"
 - [ ] UI
 - [ ] stations grouping?
+- [ ] improve delay?
